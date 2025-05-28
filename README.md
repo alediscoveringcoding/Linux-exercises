@@ -2,6 +2,7 @@
 from easy to complex linux exercises
 
 ----------------Task1--------------------------------
+
 You are required to create an interactive script that collects and displays system information and allows the user to perform various operations. The script must display an interactive menu, wait for a valid option to be entered, and return to the menu after each action, allowing the user to choose a new option or exit the program.
 
 The menu will contain the following options:
@@ -34,6 +35,7 @@ Display All Log Files – Displays all log files. A function should be created t
 
 
 -------------------------Task2---------------------------------------------
+
 Create a program in the C language that receives three command-line arguments: a source directory, a destination directory, and a positive natural number.
 
 The program will recursively traverse the directory structure of the source directory. For each entry in the source directory, the following operations will be performed based on the entry type:
@@ -53,6 +55,7 @@ For symbolic (soft) links, no operation will be performed.
 
 
 ---------------------------------Task3------------------------------------
+
 A C program is considered, which includes three processes (the parent process and two child processes).
 
 For 5 seconds, the parent process reads information from the file data.txt and sends it through a pipe to the first child process.
