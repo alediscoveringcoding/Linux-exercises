@@ -1,0 +1,13 @@
+CE = c
+TARGET = tema2.o
+
+all: tema
+
+tema: $(TARGET)
+	gcc -o tema $(TARGET)
+
+tema2.o: tema2.$(CE)
+	gcc -c tema2.$(CE) -o tema2.o
+
+clean:
+	rm -f tema $(TARGET)
