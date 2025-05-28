@@ -1,0 +1,179 @@
+
+meniu()
+{
+  echo "---------------"
+  echo "meniu:"
+  echo "1. iesire"
+  echo "2. informatii despre sistem"
+  echo "3. afisarea primelor 3 shell-uri"
+  echo "4. gestionarea directoarelor si a fisierelor: creare directo, mutare in noul folde, creare fisier si copiere"
+  echo "5. mutare si redenumire fisier (permite utilizatorului sa introduca un nume de fisier existent si sa il mute/redenumeasca)"
+  echo "6 stergere director (fisierul de la pct 4 poate fi sters+toate fisierele din interior)"
+  echo "7 afisare memorie"
+  echo "8 cautare avansata in fisiere"
+  echo "9 se afiseaza toate fisierele de log"
+  echo "---------------"
+}
+
+informatii()
+{
+  echo "utilizatorul curent este: $USER"
+  echo "directorul curent este: $PWD"
+  echo "limba setata este: $LANG"
+}
+
+afisare_primele3()
+{
+  echo "primele 3 shell-uri ale SO sunt:"
+  head -n 3 /etc/shells
+}
+
+
+manager()
+{
+
+  while true;
+  do
+  echo "1. creare director"
+  echo "2. deplasare in noul director"
+  echo "3. creare si copiere fisier in director"
+  echo "0. inapoi la meniu"
+  echo "alege optiune :" 
+  read optiune
+  
+  case $optiune in
+
+  0) echo "ai iesit"
+  break ;;
+
+  1)
+  echo "introdu numele directorului nou:" 
+  read nume_dir
+  mkdir "$nume_dir" 
+  echo "s-a creat directorul "
+  ;;
+  
+  2) 
+  echo "introdu numele directorului in care doresti sa navighezi:" 
+  read nume_dir
+  if cd "$nume_dir" 2>/dev/null; then
+  echo "sunteti bine"
+  else
+  echo "eroare"
+  fi ;;  
+
+  3)
+  echo "da numele fisierului" 
+  read nume_fis
+  touch "$nume_fis"
+  echo "fisierul a fost creat"
+  
+  echo "da numele directorului pt copiere" 
+  read nume_dir
+  if [[ -d "$nume_dir" ]]; then
+  cp "$nume_fis" "$nume_dir";
+  echo "fisierul a fost creat"
+  fi ;;
+
+esac
+done
+  
+}
+
+mutare()
+{
+  
+  echo "introdu numele fisierului"
+  read nume_fis
+
+  while true;
+  do
+  echo "0. inapoi la meniu"
+  echo "1. mutare fisier"
+  echo "2. redenumire fisier"
+  echo "alege optiune :" 
+  read optiune
+  
+  case $optiune in
+
+  0) echo "ai iesit"
+  break ;;
+
+  1) echo "introdu directorul unde vrei sa se faca mutarea"
+  read mutare
+  mv "$nume_fis" "$mutare"
+  echo "fisierul a fost mutat"
+  ;;
+
+  2) echo "da un nou nume al fisierului"
+  read nou
+  mv "$nume_fis" "$nou"
+  echo "fisierul a fost redenumit" ;;
+esac
+done
+
+}
+
+stergere()
+{
+  echo "spune ce director vrei sa stergi"
+  read nume_dir
+  rm -r "$nume_dir"
+  echo "directorul a fost sters"
+}
+
+memorie()
+{
+echo "memoria totala si libera"
+free -h | awk '{print $2, $4}'
+
+}
+
+cautareavansata()
+{
+  echo "ce cuvant vrei sa cauti? (de exemplu hostname sau file)"
+  read cuvant
+
+  echo "se face cautarea"
+  # -i e pt ignorecare -r pt recursive -l pt show the file name
+  grep -i -r -l "$cuvant" /var/log 2>/dev/null
+   
+}
+
+toatefisierelelog()
+{
+  echo "afisare lista fisiere log"
+  find /var/log -type f \( -name "*.log" -or -name ".log.gz" \)
+  #cu -type f selecteaza
+
+  echo "introdu numele fis de log (de ex /var/log/kern.log)"
+  read fis_log
+  echo "introdu textul pe care il cauti (de ex state sau info)"
+  read cuvantcautat
+
+  if [[ "$fis_log" == *.gz ]] then
+  gunzip -c "$fis_log" | grep -i "$cuvantcautat" 
+
+  else
+  grep -i "$cuvantcautat" "$fis_log"
+  fi
+}
+
+
+while true; do
+meniu
+read opt
+
+case $opt in
+1) echo "iesire"; exit ;;
+2) informatii ;;
+3) afisare_primele3 ;;
+4) manager ;;
+5) mutare ;;
+6) stergere ;;
+7) memorie ;;
+8) cautareavansata ;;
+9) toatefisierelelog ;;
+
+esac
+done
