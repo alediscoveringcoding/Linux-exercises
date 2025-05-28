@@ -1,0 +1,148 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#define MAX_PATH 1024
+
+int nrspatii(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("fopen");
+        return -1;
+    }
+
+    int spatii = 0;
+    char ch;
+    while ((ch = fgetc(file)) != EOF) {
+        if (ch == ' ') {
+            spatii++;
+        }
+    }
+
+    fclose(file);
+    return spatii;
+}
+
+
+void copierefis(const char *src, const char *dest) {
+    int src_fd = open(src, O_RDONLY);
+    if (src_fd == -1) {
+        perror("open");
+        return;
+    }
+
+    struct stat st;
+    if (fstat(src_fd, &st) == -1) {
+        perror("fstat");
+        close(src_fd);
+        return;
+    }
+
+    int dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, st.st_mode);
+    if (dest_fd == -1) {
+        perror("open");
+        close(src_fd);
+        return;
+    }
+
+    char buffer[1024];
+    ssize_t nread;
+    while ((nread = read(src_fd, buffer, sizeof(buffer))) > 0) {
+        write(dest_fd, buffer, nread);
+    }
+
+    close(src_fd);
+    close(dest_fd);
+}
+
+
+void creazadirector(const char *dir_path) {
+    struct stat st = {0};
+    if (stat(dir_path, &st) == -1) {
+        if (mkdir(dir_path, 0755) == -1) {
+            perror("mkdir");
+        }
+    }
+}
+
+
+void creazasymlink(const char *source_path, const char *dest_path) {
+    char caleabsoluta[MAX_PATH];
+
+    if (realpath(source_path, caleabsoluta) == NULL) {
+        perror("cale reala");
+        return;
+    }
+
+    if (symlink(caleabsoluta, dest_path) == -1) {
+        perror("symlink");
+    } else {
+        printf("am creat symlink %s -> %s\n", dest_path, caleabsoluta);
+    }
+}
+
+void process_directory(const char *src_dir, const char *dest_dir, int numar_spatii) {
+    DIR *dir = opendir(src_dir);
+    if (!dir) {
+        perror("opendir");
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        char src_path[MAX_PATH];
+        char dest_path[MAX_PATH];
+
+        snprintf(src_path, sizeof(src_path), "%s/%s", src_dir, entry->d_name);
+        snprintf(dest_path, sizeof(dest_path), "%s/%s", dest_dir, entry->d_name);
+
+        struct stat st;
+        if (stat(src_path, &st) == -1) {
+            perror("stat");
+            continue;
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            creazadirector(dest_path);
+            process_directory(src_path, dest_path, numar_spatii);
+        } else if (S_ISREG(st.st_mode)) {
+            if (strstr(entry->d_name, ".txt")) {
+                int counter = nrspatii(src_path);
+                if (counter > numar_spatii) {
+                    char symlink_path[MAX_PATH];
+                    snprintf(symlink_path, sizeof(symlink_path), "%s/spaces_%s", dest_dir, entry->d_name);
+                    creazasymlink(src_path, symlink_path);
+                }
+            } else {
+                copierefis(src_path, dest_path);
+            }
+        }
+    }
+
+    closedir(dir);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 4) {
+        fprintf(stderr, "utilizare: %s <director_sursa> <director_destinatie> <numar_spatii>\n", argv[0]);
+        return 1;
+    }
+
+    const char *src_dir = argv[1];
+    const char *dest_dir = argv[2];
+    int numar_spatii = atoi(argv[3]);
+
+    creazadirector(dest_dir);
+
+    process_directory(src_dir, dest_dir, numar_spatii);
+
+    return 0;
+}
