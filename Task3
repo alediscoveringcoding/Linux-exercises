@@ -1,0 +1,173 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <string.h>
+
+int pipe1[2], pipe2[2], pipe3[2];
+int freq[26] = {0};
+int nr_total_caractere = 0;
+int in_loop = 1;
+volatile sig_atomic_t write_stat = 0;
+pid_t pid1, pid2;
+
+void handler_SIGUSR2(int sig)
+{
+    write_stat = 1; 
+}
+
+void handler_SIGALRM(int sig)
+{
+    in_loop = 0; 
+}
+
+void handler_send_SIGUSR2(int sig)
+{
+    kill(pid2, SIGUSR2); // trimite semnal fiului 2
+    alarm(1);
+}
+
+int main()
+{
+    pipe(pipe1);
+    pipe(pipe2);
+    pipe(pipe3);
+
+    
+    pid2 = fork();
+    if (pid2 < 0) { perror("fork"); exit(EXIT_FAILURE); }
+
+    if (pid2 == 0)
+    {
+        // Fiu 2
+        signal(SIGUSR2, handler_SIGUSR2);
+        close(pipe1[0]); close(pipe1[1]); 
+        close(pipe2[1]); close(pipe3[0]); 
+
+        char c;
+        fd_set read_fds;
+        struct timeval timeout;
+
+        while (1)
+        {
+            FD_ZERO(&read_fds);
+            FD_SET(pipe2[0], &read_fds);
+            timeout.tv_sec = 1;
+            timeout.tv_usec = 0;
+
+            int sel = select(pipe2[0] + 1, &read_fds, NULL, NULL, &timeout);
+
+            if (sel > 0 && FD_ISSET(pipe2[0], &read_fds))
+            {
+                if (read(pipe2[0], &c, 1) <= 0)
+                    break;
+
+                if (c >= 'a' && c <= 'z')
+                {
+                    freq[c - 'a']++;
+                    nr_total_caractere++;
+                }
+            }
+
+            if (write_stat)
+            {
+                int fd = open("statistica.txt", O_WRONLY | O_CREAT | O_APPEND, 0666);
+                if (fd >= 0)
+                {
+                    dprintf(fd, "total litere mici: %d\n", nr_total_caractere);
+                    dprintf(fd, "distributia literelor:\n");
+                    for (int i = 0; i < 26; ++i)
+                        dprintf(fd, "%c = %d\n", 'a' + i, freq[i]);
+                    dprintf(fd, "\n");
+                    close(fd);
+                }
+
+                write_stat = 0;
+            }
+        }
+
+        int distinct = 0;
+        for (int i = 0; i < 26; ++i)6
+            if (freq[i] > 0)
+                distinct++;
+
+        write(pipe[1], &distinct, sizeof(int));
+        close(pipe2[0]);
+        close(pipe3[1]);
+        exit(0);
+    }
+
+    
+    pid1 = fork();
+    if (pid1 < 0) { perror("fork"); exit(EXIT_FAILURE); }
+
+    if (pid1 == 0)
+    {
+        // Fiu 1
+        close(pipe1[1]);
+        close(pipe2[0]);
+        close(pipe3[0]); close(pipe3[1]); 
+
+        char buffer[256];
+        int nr;
+
+        signal(SIGALRM, handler_send_SIGUSR2);
+        alarm(1);
+
+        while ((nr = read(pipe1[0], buffer, sizeof(buffer))) > 0)
+        {
+            for (int i = 0; i < nr; ++i)
+            {
+                if (buffer[i] >= 'a' && buffer[i] <= 'z')
+                {
+                    write(pipe2[1], &buffer[i], 1);
+                }
+            }
+        }
+
+        close(pipe1[0]);
+        close(pipe2[1]);
+        exit(0);
+    }
+
+    // parinte
+    close(pipe1[0]);
+    close(pipe2[0]); close(pipe2[1]);
+    close(pipe3[1]);
+
+    int fd = open("data.txt", O_RDONLY);
+    if (fd < 0) { perror("data.txt"); exit(EXIT_FAILURE); }
+
+    signal(SIGALRM, handler_SIGALRM);
+    alarm(5);
+
+    char buffer[256];
+    int nr;
+
+    while (in_loop)
+    {
+        nr = read(fd, buffer, sizeof(buffer));
+        if (nr <= 0)
+        {
+           lseek(fd, 0, SEEK_SET);
+            continue;
+        }
+        write(pipe1[1], buffer, nr);
+    }
+
+    close(pipe1[1]);
+    close(fd);
+
+    int result;
+    read(pipe3[0], &result, sizeof(int));
+    printf("Numar de caractere mici distincte: %d\n", result);
+    close(pipe3[0]);
+
+    waitpid(pid1, NULL, 0); 
+    waitpid(pid2, NULL, 0);
+
+    return 0;
+}
